@@ -3,160 +3,225 @@ package projects.Chandra_and_Toueg.nodes.nodeImplementations;
 
 import java.awt.Color;
 import java.awt.Graphics;
-import java.lang.reflect.Method;
-import java.util.TreeSet;
+import java.util.Iterator;
 
+import projects.Chandra_and_Toueg.nodes.messages.AckMsg;
+import projects.Chandra_and_Toueg.nodes.messages.ConfirmationMsg;
+import projects.Chandra_and_Toueg.nodes.messages.DecideValueMsg;
+import projects.Chandra_and_Toueg.nodes.messages.NAckMsg;
+import projects.Chandra_and_Toueg.nodes.messages.ProposeValueMsg;
+import sinalgo.configuration.CorruptConfigurationEntryException;
 import sinalgo.configuration.WrongConfigurationException;
 import sinalgo.gui.transformation.PositionTransformation;
-import sinalgo.io.eps.EPSOutputPrintStream;
 import sinalgo.nodes.Node;
 import sinalgo.nodes.edges.Edge;
 import sinalgo.nodes.messages.Inbox;
-import sinalgo.runtime.Runtime;
-import sinalgo.tools.Tools;
+import sinalgo.nodes.messages.Message;
+import sinalgo.tools.statistics.Distribution;
 
 
 /**
  * The class to simulate the sample2-project.
  */
 public class CTNode extends Node implements Comparable<CTNode> {
+	private static int UNDECIDED = 1;
+	private static int DECIDED = 2;
 
-	private static int maxNeighbors = 0; // global field containing the max number of neighbors any node ever had
+	private int proposedValue = 0; 
+	private boolean isLeader = false;
+	private boolean isACK = false;
+	private boolean isNACK = false;
+	private int state = UNDECIDED;
+	private int proposeMessages = 0;
+	private ProposeValueMsg maxProposeValueMsg;
+	private int countAcks = 0;
+	private int countNAcks = 0; 
+
+	private int r = 0;
+	private int TS = 0;
+	private CTNode coordinator;
 	
-	private boolean isMaxNode = false; // flag set to true when this node has most neighbors
-	private boolean drawAsNeighbor = false; // flag set by a neighbor to color specially
+	// TODO GET ALL NODES
+	private int N = 5;
+	private int halfPlusOne = (this.N/2) + 1; 
 	
-	// The set of nodes this node has already seen
-	private TreeSet<CTNode> neighbors = new TreeSet<CTNode>();
-	
-	/**
-	 * Reset the list of neighbors of this node.
-	 */
-	public void reset() {
-		neighbors.clear();
+
+	@Override
+	public void preStep() {
+		if (this.proposedValue == 0) {
+			tryToProposeValue();
+		}
+		if (this.proposedValue < 0) {
+			return;
+		}
+		
+		this.isLeader = false;
+		int coordinator_id = (this.r + 1 % this.N) + 1;
+		if (coordinator_id == this.ID) {
+			this.isLeader = true; 
+			return;
+		}
+
+		for (Iterator<Edge> nodes = outgoingConnections.iterator(); nodes.hasNext();) {
+			Edge edge = nodes.next();
+			if (edge.endNode.ID == coordinator_id) {
+				sendMessageToCoordinator((CTNode)edge.endNode);
+			}
+		}
+		// TODO TIMEOUT
 	}
 	
-	@Override
-	public void checkRequirements() throws WrongConfigurationException {
+	private void tryToProposeValue() {
+		if (!wantProposeValue()) {
+			return;
+		}
+		this.proposedValue = (int)(Math.random() * 9999) + 1;
+		this.r = 0;
+		this.TS = 0;
+	}
+
+	private boolean wantProposeValue() {
+		String namespace = "CT/Propose/Want";
+		Distribution dist;
+        try {
+	        dist = Distribution.getDistributionFromConfigFile(namespace + "/Want");
+	        System.out.println(dist.nextSample());
+	        return (int)dist.nextSample() == 1;
+        } catch (CorruptConfigurationEntryException e) {
+	        e.printStackTrace();
+        	return false;
+        }
+	}
+	
+	private void sendMessageToCoordinator(CTNode coordinator) {
+		if (this.state == DECIDED) {
+			return;
+		}
+
+		this.r++;
+		this.coordinator = coordinator;
+		ProposeValueMsg msg = new ProposeValueMsg(this.coordinator, this.r, this.TS, this.proposedValue);
+		send(msg, this.coordinator);
 	}
 
 	@Override
 	public void handleMessages(Inbox inbox) {
+		while (inbox.hasNext()) {
+			Message msg = inbox.next();
+			if (msg instanceof ProposeValueMsg) {
+				receivedPropose((ProposeValueMsg) msg);
+			}
+			else if (msg instanceof DecideValueMsg) {
+				receivedDecidedMsg((DecideValueMsg) msg);
+			}
+			else if (msg instanceof AckMsg) {
+				receivedAckMsg((AckMsg) msg);
+			}
+			else if (msg instanceof AckMsg) {
+				receivedNAckMsg((NAckMsg) msg);
+			}
+			else if (msg instanceof ConfirmationMsg) {
+				receivedConfirmation((ConfirmationMsg) msg);
+			}
+		}
+	}
+	
+	private void receivedPropose(ProposeValueMsg proposeValueMsg) {
+		this.proposeMessages += 1;
+		if (this.maxProposeValueMsg == null || proposeValueMsg.TS > this.maxProposeValueMsg.TS) {
+			this.maxProposeValueMsg = proposeValueMsg;
+		}
+
+		if (this.proposeMessages >= this.halfPlusOne) {
+			DecideValueMsg msg = new DecideValueMsg(this, this.maxProposeValueMsg);
+			broadcast(msg);
+		}
+	}
+	
+	private void receivedDecidedMsg(DecideValueMsg decidedValueMsg) {
+		this.isACK = false;
+		this.isNACK = false;
+		if (decidedValueMsg.node == this.coordinator) {
+			this.isACK = true;
+			this.proposedValue = decidedValueMsg.value;
+			this.TS = decidedValueMsg.R;
+			AckMsg ackMsg = new AckMsg(this, this.r); 
+			send(ackMsg, this.coordinator);
+		} else {
+			this.isNACK = true;
+			NAckMsg nackMsg = new NAckMsg(this, this.r); 
+			send(nackMsg, this.coordinator);
+		}
+	}
+	
+	private void receivedAckMsg(AckMsg ackMsg) {
+		this.countAcks++;
+		handleDecision();
+	}
+	
+	private void receivedNAckMsg(NAckMsg nackMsg) {
+		this.countNAcks++;
+		handleDecision();
+	}
+	
+	private void handleDecision() {
+		if (this.countAcks + this.countNAcks >= halfPlusOne) {
+			ConfirmationMsg msg = new ConfirmationMsg(this); 
+			broadcast(msg);
+		}
+	}
+	
+	private void receivedConfirmation(ConfirmationMsg confirmationMsg) {
+		this.state = DECIDED;
+		this.r = confirmationMsg.node.r;
 	}
 
 	@Override
 	public void init() {
+		this.isLeader = this.ID == 1;
 	}
 
 	@Override
 	public void neighborhoodChange() {
-		for(Edge e : this.outgoingConnections){
-			neighbors.add((CTNode) e.endNode); // only adds really new neighbors
-		}
-	}
-
-	@Override
-	public void preStep() {
-		// color this node specially when it has most neighbors
-		if(this.neighbors.size() >= CTNode.maxNeighbors) {
-			CTNode.maxNeighbors = this.neighbors.size();
-			this.isMaxNode = true;
-		} else {
-			this.isMaxNode = false;
-		}
+		//for(Edge e : this.outgoingConnections){
+			//neighbors.add((CTNode) e.endNode); // only adds really new neighbors
+		//}
 	}
 
 	@Override
 	public void postStep() {
 	}
 	
-	private static boolean isColored = false;
-	
-	/**
-	 * Colors all the nodes that this node has seen once.
-	 */
-	@NodePopupMethod(menuText="Color Neighbors")
-	public void ColorNeighbors(){
-		for(CTNode n : neighbors) {
-			n.drawAsNeighbor = true;
-		}
-		isColored = true;
-		// redraw the GUI to show the neighborhood immediately
-		if(Tools.isSimulationInGuiMode()) {
-			Tools.repaintGUI();
-		}
-	}
-	
-	/**
-	 * Resets the color of all previously colored nodes.
-	 */
-	@NodePopupMethod(menuText="Undo Coloring")
-	public void UndoColoring() { // NOTE: Do not change method name!
-		// undo the coloring for all nodes
-		for(Node n : Runtime.nodes){
-			((CTNode) n).drawAsNeighbor = false;
-		}
-		isColored = false;
-		// redraw the GUI to show the neighborhood immediately
-		if(Tools.isSimulationInGuiMode()) {
-			Tools.repaintGUI();
-		}
-	}
-
-	/* (non-Javadoc)
-	 * @see sinalgo.nodes.Node#includeMethodInPopupMenu(java.lang.reflect.Method, java.lang.String)
-	 */
-	public String includeMethodInPopupMenu(Method m, String defaultText) {
-		if(!isColored && m.getName().equals("UndoColoring")) {
-			return null; // there's nothing to be undone
-		}
-		return defaultText;
-	}
-	
-
 	@Override
 	public String toString() {
-		return "This node has seen "+neighbors.size()+" neighbors during its life.";
+		return Integer.toString(this.ID);
 	}
 	
-	/* (non-Javadoc)
-	 * @see sinalgo.nodes.Node#draw(java.awt.Graphics, sinalgo.gui.transformation.PositionTransformation, boolean)
-	 */
 	public void draw(Graphics g, PositionTransformation pt, boolean highlight) {
-		// Set the color of this node depending on its state
-		if(isMaxNode) {
-			this.setColor(Color.RED);
-		} else if(drawAsNeighbor) {
+		if(this.isLeader) {
 			this.setColor(Color.BLUE);
+		} else if (this.isACK) {
+			this.setColor(Color.GREEN);
+		} else if (this.isNACK) {
+			this.setColor(Color.RED);
 		} else {
-			this.setColor(Color.BLACK);
+			this.setColor(Color.GRAY);
 		}
-		double fraction = Math.max(0.1, ((double) neighbors.size()) / Tools.getNodeList().size());
-		this.drawingSizeInPixels = (int) (fraction * pt.getZoomFactor() * this.defaultDrawingSizeInPixels);
-		drawAsDisk(g, pt, highlight, this.drawingSizeInPixels);
+		String text = this.toString() + "-" + Integer.toString(this.proposedValue); 
+		super.drawNodeAsSquareWithText(g, pt, highlight, text, 25, Color.BLACK);
 	}
 	
-	/* (non-Javadoc)
-	 * @see sinalgo.nodes.Node#drawToPostScript(sinalgo.io.eps.EPSOutputPrintStream, sinalgo.gui.transformation.PositionTransformation)
-	 */
-	public void drawToPostScript(EPSOutputPrintStream pw, PositionTransformation pt) {
-		// the size and color should still be set from the GUI draw method
-		drawToPostScriptAsDisk(pw, pt, drawingSizeInPixels/2, getColor());
-	}
-
-	/* (non-Javadoc)
-	 * @see java.lang.Comparable#compareTo(java.lang.Object)
-	 */
 	public int compareTo(CTNode tmp) {
 		if(this.ID < tmp.ID) {
 			return -1;
-		} else {
-			if(this.ID == tmp.ID) {
-				return 0;
-			} else {
-				return 1;
-			}
 		}
+		if(this.ID > tmp.ID) {
+			return 1;
+		}
+		return 0;
 	}
 	
+	@Override
+	public void checkRequirements() throws WrongConfigurationException {
+	}
 }

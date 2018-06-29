@@ -125,7 +125,8 @@
 		<useMap value="false" />
 
 		<!--In 2D, the background can be colored depending on a map file. This field contains the file name for this map, which is supposed to be located in the source folder of the current project. The map is only painted if useMap is set to true.-->
-		
+		<map value="Map.mp" />
+
 		<!--***********************************************************************-->
 		<!--  Models                                                               -->
 		<!--***********************************************************************-->
@@ -219,7 +220,7 @@
 		<!--The width of the arrows. This width is multiplied by the current zoomLevel.-->
 		<arrowWidth value="1" />
 
-		<!--The default value of the rounds field.-->
+		<!--The dsfault value of the rounds field.-->
 		<defaultRoundNumber value="1" />
 
 	</Framework>
@@ -243,6 +244,6 @@
     </Want>
   </Propose>
 </CT>
-																																				</Custom>
+																																					</Custom>
 </Document>
 

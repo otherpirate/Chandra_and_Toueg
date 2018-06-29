@@ -36,15 +36,7 @@
 */
 package projects.Chandra_and_Toueg;
 
-import java.lang.reflect.Method;
-
-import javax.swing.JOptionPane;
-
-import projects.Chandra_and_Toueg.nodes.nodeImplementations.CTNode;
-
-import sinalgo.nodes.Node;
 import sinalgo.runtime.AbstractCustomGlobal;
-import sinalgo.tools.Tools;
 
 
 /**
@@ -70,61 +62,14 @@ import sinalgo.tools.Tools;
  */
 public class CustomGlobal extends AbstractCustomGlobal{
 	
-	/* (non-Javadoc)
-	 * @see runtime.AbstractCustomGlobal#hasTerminated()
-	 */
 	public boolean hasTerminated() {
 		return false;
 	}
 
-	/**
-	 * An example of a method that will be available through the menu of the GUI.
-	 */
-	@AbstractCustomGlobal.GlobalMethod(menuText="Echo")
-	public void echo() {
-		// Query the user for an input
-		String answer = JOptionPane.showInputDialog(null, "This is an example.\nType in any text to echo.");
-		// Show an information message 
-		JOptionPane.showMessageDialog(null, "You typed '" + answer + "'", "Example Echo", JOptionPane.INFORMATION_MESSAGE);
-	}
-	
-	/* (non-Javadoc)
-	 * @see sinalgo.runtime.AbstractCustomGlobal#postRound()
-	 */
 	public void postRound() {
 		
 	}
 	
-	/* (non-Javadoc)
-	 * @see runtime.AbstractCustomGlobal#preRun()
-	 */
 	public void preRun() {
-		// A method called at startup, before the first round is executed.
-	}
-	
-	/**
-	 * Reset all nodes, s.t. they forget their history. 
-	 */
-	@GlobalMethod(menuText="reset")
-	public void reset() {
-		for(Node n : Tools.getNodeList()) {
-			((CTNode) n).reset();
-		}
-		Tools.repaintGUI();
-	}
-	
-	/* (non-Javadoc)
-	 * @see sinalgo.runtime.AbstractCustomGlobal#includeGlobalMethodInMenu(java.lang.reflect.Method, java.lang.String)
-	 */
-	public String includeGlobalMethodInMenu(Method m, String defaultText) {
-		if(m.getName().equals("reset")) {
-			int size = Tools.getNodeList().size();
-			if(size == 0) {
-				return null; 
-			} else {
-				return "Reset all " + Tools.getNodeList().size() + " nodes"; // a context sensitive menu entry
-			}
-		}
-		return defaultText; 
 	}
 }
