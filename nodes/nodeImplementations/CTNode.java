@@ -23,7 +23,7 @@ import sinalgo.tools.statistics.Distribution;
 /**
  * The class to simulate the sample2-project.
  */
-public class CTNode extends Node implements Comparable<CTNode> {
+public class CTNode extends Node {
 	private static int UNDECIDED = 1;
 	private static int DECIDED = 2;
 
@@ -43,41 +43,46 @@ public class CTNode extends Node implements Comparable<CTNode> {
 	
 	// TODO GET ALL NODES
 	private int N = 5;
-	private int halfPlusOne = (this.N/2) + 1; 
+	private int halfPlusOne = (this.N/2) + 1;
+	
+	// TODO POG
+	private boolean sentValue = false;
 	
 
 	@Override
 	public void preStep() {
-		if (this.proposedValue == 0) {
-			tryToProposeValue();
-		}
-		if (this.proposedValue < 0) {
-			return;
-		}
-		
 		this.isLeader = false;
 		int coordinator_id = (this.r + 1 % this.N) + 1;
 		if (coordinator_id == this.ID) {
 			this.isLeader = true; 
 			return;
 		}
-
+		if (this.sentValue) {
+			return;
+		}
+		if (this.proposedValue == 0) {
+			if (!tryToProposeValue()) {
+				return;
+			}
+		}
 		for (Iterator<Edge> nodes = outgoingConnections.iterator(); nodes.hasNext();) {
 			Edge edge = nodes.next();
 			if (edge.endNode.ID == coordinator_id) {
 				sendMessageToCoordinator((CTNode)edge.endNode);
+				this.sentValue = true;
 			}
 		}
 		// TODO TIMEOUT
 	}
 	
-	private void tryToProposeValue() {
+	private boolean tryToProposeValue() {
 		if (!wantProposeValue()) {
-			return;
+			return false;
 		}
 		this.proposedValue = (int)(Math.random() * 9999) + 1;
 		this.r = 0;
 		this.TS = 0;
+		return true;
 	}
 
 	private boolean wantProposeValue() {
@@ -98,7 +103,7 @@ public class CTNode extends Node implements Comparable<CTNode> {
 			return;
 		}
 
-		this.r++;
+		//this.r++;
 		this.coordinator = coordinator;
 		ProposeValueMsg msg = new ProposeValueMsg(this.coordinator, this.r, this.TS, this.proposedValue);
 		send(msg, this.coordinator);
@@ -198,19 +203,32 @@ public class CTNode extends Node implements Comparable<CTNode> {
 	}
 	
 	public void draw(Graphics g, PositionTransformation pt, boolean highlight) {
-		if(this.isLeader) {
+		String text = this.toString() + " - PV" + Integer.toString(this.proposedValue);
+		
+		if (this.coordinator != null) {
+			text += " - CI" + this.coordinator.ID;
+		}
+
+		if(this.state == DECIDED) {
+			this.setColor(Color.PINK);
+		} else if(this.isLeader) {
 			this.setColor(Color.BLUE);
+			text += " - AK" + Integer.toString(this.countAcks);
+			text += " - NA" + Integer.toString(this.countNAcks);
+			text += " - PM" + Integer.toString(this.proposeMessages);
+			if (this.maxProposeValueMsg != null) {
+				text += " - MP" + Integer.toString(this.maxProposeValueMsg.value);
+			}
 		} else if (this.isACK) {
 			this.setColor(Color.GREEN);
 		} else if (this.isNACK) {
 			this.setColor(Color.RED);
 		} else {
 			this.setColor(Color.GRAY);
-		}
-		String text = this.toString() + "-" + Integer.toString(this.proposedValue); 
+		} 
 		super.drawNodeAsSquareWithText(g, pt, highlight, text, 25, Color.BLACK);
 	}
-	
+
 	public int compareTo(CTNode tmp) {
 		if(this.ID < tmp.ID) {
 			return -1;
