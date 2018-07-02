@@ -21,35 +21,35 @@ import sinalgo.tools.statistics.Distribution;
 
 
 public class CTNode extends Node {
-	private static int UNDECIDED = 1;
-	private static int DECIDED = 2;
+	public static int UNDECIDED = 1;
+	public static int DECIDED = 2;
+	public static int ALL_DECIDED = 3;
 
-	private int proposedValue = 0; 
-	private boolean isLeader = false;
-	private boolean isACK = false;
-	private boolean isNACK = false;
-	private int state = UNDECIDED;
-	private int proposeMessages = 0;
-	private ProposeValueMsg maxProposeValueMsg;
-	private int countAcks = 0;
-	private int countNAcks = 0; 
+	public int proposedValue = 0; 
+	public boolean isLeader = false;
+	public boolean isACK = false;
+	public boolean isNACK = false;
+	public int state = UNDECIDED;
+	public int proposeMessages = 0;
+	public ProposeValueMsg maxProposeValueMsg;
+	public int countAcks = 0;
+	public int countNAcks = 0; 
 
-	private int r = 0;
+	private int r = 1;
 	private int TS = 0;
 	private CTNode coordinator;
 	
-	// TODO GET ALL NODES
-	private int N = 5;
-	private int halfPlusOne = (this.N/2) + 1;
+	public int N;
+	public int halfPlusOne;
 	
 	// TODO POG
-	private boolean sentValue = false;
-	
+	public boolean sentValue = false;
 
 	@Override
 	public void preStep() {
+		this.TS++;
 		this.isLeader = false;
-		int coordinator_id = (this.r + 1 % this.N) + 1;
+		int coordinator_id = this.r;
 		if (coordinator_id == this.ID) {
 			this.isLeader = true; 
 			return;
@@ -77,8 +77,6 @@ public class CTNode extends Node {
 			return false;
 		}
 		this.proposedValue = (int)(Math.random() * 9999) + 1;
-		this.r = 0;
-		this.TS = 0;
 		return true;
 	}
 
@@ -99,7 +97,6 @@ public class CTNode extends Node {
 			return;
 		}
 
-		//this.r++;
 		this.coordinator = coordinator;
 		ProposeValueMsg msg = new ProposeValueMsg(this.coordinator, this.r, this.TS, this.proposedValue);
 		send(msg, this.coordinator);
@@ -131,6 +128,13 @@ public class CTNode extends Node {
 		this.proposeMessages += 1;
 		if (this.maxProposeValueMsg == null || proposeValueMsg.TS > this.maxProposeValueMsg.TS) {
 			this.maxProposeValueMsg = proposeValueMsg;
+		}
+		decide();
+	}
+	
+	private void decide() {
+		if (this.maxProposeValueMsg == null) {
+			return;
 		}
 
 		if (this.proposeMessages >= this.halfPlusOne) {
@@ -166,6 +170,9 @@ public class CTNode extends Node {
 	}
 	
 	private void handleDecision() {
+		if (!this.isLeader) {
+			return;
+		}
 		if (this.countAcks + this.countNAcks >= halfPlusOne) {
 			ConfirmationMsg msg = new ConfirmationMsg(this); 
 			broadcast(msg);
@@ -183,11 +190,26 @@ public class CTNode extends Node {
 
 	@Override
 	public void neighborhoodChange() {
+		decide();
 		handleDecision();
 	}
-
-	@Override
-	public void postStep() {
+	
+	public void nextConsensus() {
+		this.r++;
+		if (this.r > this.N) {
+			this.r = 1;
+		}
+		this.state = UNDECIDED;
+		this.sentValue = false;
+		this.isACK = false;
+		this.isNACK = false;
+		this.proposedValue = 0; 
+		this.isLeader = false;
+		this.maxProposeValueMsg = null;
+		this.proposeMessages = 0;
+		this.countAcks = 0;
+		this.countNAcks = 0; 
+		this.coordinator = null;
 	}
 	
 	@Override
@@ -234,5 +256,11 @@ public class CTNode extends Node {
 	
 	@Override
 	public void checkRequirements() throws WrongConfigurationException {
+	}
+
+	@Override
+	public void postStep() {
+		// TODO Auto-generated method stub
+		
 	}
 }

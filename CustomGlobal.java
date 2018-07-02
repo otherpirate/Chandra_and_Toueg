@@ -36,40 +36,95 @@
 */
 package projects.Chandra_and_Toueg;
 
+import java.util.Iterator;
+import projects.Chandra_and_Toueg.nodes.nodeImplementations.CTNode;
+import sinalgo.nodes.Node;
 import sinalgo.runtime.AbstractCustomGlobal;
+import sinalgo.runtime.Runtime;
+import sinalgo.tools.logging.Logging;
 
 
-/**
- * This class holds customized global state and methods for the framework. 
- * The only mandatory method to overwrite is 
- * <code>hasTerminated</code>
- * <br>
- * Optional methods to override are
- * <ul>
- * <li><code>customPaint</code></li>
- * <li><code>handleEmptyEventQueue</code></li>
- * <li><code>onExit</code></li>
- * <li><code>preRun</code></li>
- * <li><code>preRound</code></li>
- * <li><code>postRound</code></li>
- * <li><code>checkProjectRequirements</code></li>
- * </ul>
- * @see sinalgo.runtime.AbstractCustomGlobal for more details.
- * <br>
- * In addition, this class also provides the possibility to extend the framework with
- * custom methods that can be called either through the menu or via a button that is
- * added to the GUI. 
- */
 public class CustomGlobal extends AbstractCustomGlobal{
+	
+	Logging log = Logging.getLogger("CT.txt");
 	
 	public boolean hasTerminated() {
 		return false;
 	}
 
-	public void postRound() {
-		
+	int round = 0;
+	
+	@Override
+	public void preRun() {
+		log.logln("round,leader,decided,undecided,ack,nack,msg_node,msg_value,msg_ts");	
 	}
 	
-	public void preRun() {
+	@Override
+	public void preRound() {
+		Iterator<Node> nodeIter = Runtime.nodes.iterator();
+		while(nodeIter.hasNext()){
+			CTNode n = (CTNode) nodeIter.next();
+			n.N = Runtime.nodes.size();
+			n.halfPlusOne = (n.N/2) + 1;
+		}
+	}
+	
+	@Override
+	public void postRound() {
+		int leader = 0;
+		int decided = 0;
+		int undecided = 0;
+		int acks = 0;
+		int nacks = 0;
+		int msg_node = -1;
+		int msg_value = -1;
+		int msg_ts = -1;
+
+		Iterator<Node> nodeIter = Runtime.nodes.iterator();
+		while(nodeIter.hasNext()){
+			CTNode n = (CTNode) nodeIter.next();
+			if (n.isLeader) {
+				leader = n.ID;
+				if (n.maxProposeValueMsg != null) {
+					msg_node = n.maxProposeValueMsg.C.ID;
+					msg_value = n.maxProposeValueMsg.value;
+					msg_ts = n.maxProposeValueMsg.TS;
+				}
+			}
+			if (n.state == CTNode.DECIDED) {
+				decided++;
+			}
+			if (n.state == CTNode.UNDECIDED) {
+				undecided++;
+			}
+			if (n.isACK) {
+				acks++;
+			}
+			if (n.isNACK) {
+				nacks++;
+			}
+		}
+		log.logln("" + round +
+				  "," + leader  +
+				  "," + decided +	
+				  "," + undecided +
+				  "," + acks +
+				  "," + nacks +
+				  "," + msg_node +
+				  "," + msg_value + 
+				  "," + msg_ts);
+		round += 1;
+
+		checkAllDecided(undecided);
+	}
+	
+	private void checkAllDecided(int undecided) {
+		if (undecided == 1) {
+			Iterator<Node> nodeIter = Runtime.nodes.iterator();
+			while(nodeIter.hasNext()){
+				CTNode n = (CTNode) nodeIter.next();
+				n.nextConsensus();
+			}
+		}
 	}
 }
