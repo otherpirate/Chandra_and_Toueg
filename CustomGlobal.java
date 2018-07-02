@@ -61,10 +61,11 @@ public class CustomGlobal extends AbstractCustomGlobal{
 	
 	@Override
 	public void preRound() {
+		int size = Runtime.nodes.size();
 		Iterator<Node> nodeIter = Runtime.nodes.iterator();
 		while(nodeIter.hasNext()){
 			CTNode n = (CTNode) nodeIter.next();
-			n.N = Runtime.nodes.size();
+			n.N = size;
 			n.halfPlusOne = (n.N/2) + 1;
 		}
 	}
@@ -119,7 +120,8 @@ public class CustomGlobal extends AbstractCustomGlobal{
 	}
 	
 	private void checkAllDecided(int undecided) {
-		if (undecided == 1) {
+		float perc_undecided = (undecided * 100)/Runtime.nodes.size(); 
+		if (perc_undecided <= 10) {
 			Iterator<Node> nodeIter = Runtime.nodes.iterator();
 			while(nodeIter.hasNext()){
 				CTNode n = (CTNode) nodeIter.next();

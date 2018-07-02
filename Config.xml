@@ -185,7 +185,7 @@
 		<!--  Animation Settings                                                   -->
 		<!--***********************************************************************-->
 		<!--Draw an envelope for each message that is being sent-->
-		<showMessageAnimations value="true" />
+		<showMessageAnimations value="false" />
 
 		<!--Width of the envelope (when the message animation is enabled)-->
 		<messageAnimationEnvelopeWidth value="30.0" />
@@ -229,8 +229,8 @@
 
 <MessageTransmission ConstantTime="1"/>
 
-<GeometricNodeCollection rMax="100"/>
-<UDG rMax="100"/>
+<GeometricNodeCollection rMax="1000"/>
+<UDG rMax="200"/>
 
 <RandomWayPoint>
 	<Speed distribution="Gaussian" mean="2" variance="3" />

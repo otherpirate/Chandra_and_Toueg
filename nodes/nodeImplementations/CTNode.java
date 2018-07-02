@@ -146,7 +146,7 @@ public class CTNode extends Node {
 	private void receivedDecidedMsg(DecideValueMsg decidedValueMsg) {
 		this.isACK = false;
 		this.isNACK = false;
-		if (decidedValueMsg.node == this.coordinator) {
+		if (this.coordinator != null && decidedValueMsg.node == this.coordinator) {
 			this.isACK = true;
 			this.proposedValue = decidedValueMsg.value;
 			this.TS = decidedValueMsg.R;
@@ -155,7 +155,7 @@ public class CTNode extends Node {
 		} else {
 			this.isNACK = true;
 			NAckMsg nackMsg = new NAckMsg(this, this.r); 
-			send(nackMsg, this.coordinator);
+			send(nackMsg, decidedValueMsg.node);
 		}
 	}
 	
@@ -218,22 +218,12 @@ public class CTNode extends Node {
 	}
 	
 	public void draw(Graphics g, PositionTransformation pt, boolean highlight) {
-		String text = this.toString() + " - PV" + Integer.toString(this.proposedValue);
-		
-		if (this.coordinator != null) {
-			text += " - CI" + this.coordinator.ID;
-		}
+		String text = this.toString();
 
-		if(this.state == DECIDED) {
-			this.setColor(Color.PINK);
-		} else if(this.isLeader) {
+		if(this.isLeader) {
 			this.setColor(Color.BLUE);
-			text += " - AK" + Integer.toString(this.countAcks);
-			text += " - NA" + Integer.toString(this.countNAcks);
-			text += " - PM" + Integer.toString(this.proposeMessages);
-			if (this.maxProposeValueMsg != null) {
-				text += " - MP" + Integer.toString(this.maxProposeValueMsg.value);
-			}
+		} else if(this.state == DECIDED) {
+			this.setColor(Color.PINK);
 		} else if (this.isACK) {
 			this.setColor(Color.GREEN);
 		} else if (this.isNACK) {
@@ -260,7 +250,5 @@ public class CTNode extends Node {
 
 	@Override
 	public void postStep() {
-		// TODO Auto-generated method stub
-		
 	}
 }
