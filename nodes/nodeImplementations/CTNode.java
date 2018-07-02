@@ -20,9 +20,6 @@ import sinalgo.nodes.messages.Message;
 import sinalgo.tools.statistics.Distribution;
 
 
-/**
- * The class to simulate the sample2-project.
- */
 public class CTNode extends Node {
 	private static int UNDECIDED = 1;
 	private static int DECIDED = 2;
@@ -90,7 +87,6 @@ public class CTNode extends Node {
 		Distribution dist;
         try {
 	        dist = Distribution.getDistributionFromConfigFile(namespace + "/Want");
-	        System.out.println(dist.nextSample());
 	        return (int)dist.nextSample() == 1;
         } catch (CorruptConfigurationEntryException e) {
 	        e.printStackTrace();
@@ -183,14 +179,11 @@ public class CTNode extends Node {
 
 	@Override
 	public void init() {
-		this.isLeader = this.ID == 1;
 	}
 
 	@Override
 	public void neighborhoodChange() {
-		//for(Edge e : this.outgoingConnections){
-			//neighbors.add((CTNode) e.endNode); // only adds really new neighbors
-		//}
+		handleDecision();
 	}
 
 	@Override
