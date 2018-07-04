@@ -44,9 +44,14 @@ public class CTNode extends Node {
 	
 	// TODO POG
 	public boolean sentValue = false;
+	public boolean hasLeader = false;
+	public boolean reset = false;
 
 	@Override
 	public void preStep() {
+		if (this.reset) {
+			this.nextConsensus();
+		}
 		this.TS++;
 		this.isLeader = false;
 		int coordinator_id = this.r;
@@ -210,6 +215,7 @@ public class CTNode extends Node {
 		this.countAcks = 0;
 		this.countNAcks = 0; 
 		this.coordinator = null;
+		this.reset = false;
 	}
 	
 	@Override

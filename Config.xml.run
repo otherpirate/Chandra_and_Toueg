@@ -230,7 +230,7 @@
 <MessageTransmission ConstantTime="1"/>
 
 <GeometricNodeCollection rMax="1000"/>
-<UDG rMax="200"/>
+<UDG rMax="250"/>
 
 <RandomWayPoint>
 	<Speed distribution="Gaussian" mean="2" variance="3" />

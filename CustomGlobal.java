@@ -72,7 +72,7 @@ public class CustomGlobal extends AbstractCustomGlobal{
 	
 	@Override
 	public void postRound() {
-		int leader = 0;
+		CTNode leader = null;
 		int decided = 0;
 		int undecided = 0;
 		int acks = 0;
@@ -85,7 +85,7 @@ public class CustomGlobal extends AbstractCustomGlobal{
 		while(nodeIter.hasNext()){
 			CTNode n = (CTNode) nodeIter.next();
 			if (n.isLeader) {
-				leader = n.ID;
+				leader = n;
 				if (n.maxProposeValueMsg != null) {
 					msg_node = n.maxProposeValueMsg.C.ID;
 					msg_value = n.maxProposeValueMsg.value;
@@ -106,7 +106,7 @@ public class CustomGlobal extends AbstractCustomGlobal{
 			}
 		}
 		log.logln("" + round +
-				  "," + leader  +
+				  "," + leader.ID +
 				  "," + decided +	
 				  "," + undecided +
 				  "," + acks +
@@ -116,17 +116,22 @@ public class CustomGlobal extends AbstractCustomGlobal{
 				  "," + msg_ts);
 		round += 1;
 
-		checkAllDecided(undecided);
+		checkAllDecided(decided, leader);
 	}
 	
-	private void checkAllDecided(int undecided) {
-		float perc_undecided = (undecided * 100)/Runtime.nodes.size(); 
-		if (perc_undecided <= 10) {
-			Iterator<Node> nodeIter = Runtime.nodes.iterator();
-			while(nodeIter.hasNext()){
-				CTNode n = (CTNode) nodeIter.next();
-				n.nextConsensus();
-			}
+	private void checkAllDecided(int decided, CTNode leader) {
+		float perc_decided = (decided * 100)/(Runtime.nodes.size()-1);
+		if (perc_decided < 80.0) {
+			return;
+		}
+		if (leader.hasLeader) {
+			return;
+		}
+		leader.hasLeader = true;
+		Iterator<Node> nodeIter = Runtime.nodes.iterator();
+		while(nodeIter.hasNext()){
+			CTNode n = (CTNode) nodeIter.next();
+			n.reset = true;
 		}
 	}
 }
